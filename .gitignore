@@ -1,2 +1,9 @@
-__pycache__/
+.env
+/logs
+/.vscode
+*.db
+logs/app.log
 *.pyc
+/billing/apps/db/__pycache__
+/billing/apps/handlers/__pycache__
+/.venv

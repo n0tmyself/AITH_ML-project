@@ -1,0 +1,105 @@
+version: '3.10'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: billing_backend
+    command: poetry run python -m billing.main
+    volumes:
+      - ./billing:/app/billing
+      - ./billing.db:/app/billing.db:rw 
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
+    environment:
+      - GIGA_API_KEY=${GIGA_API_KEY}
+      - SCOPE=${SCOPE}
+      - SECRET_KEY=${SECRET_KEY}
+      - COOKIES_EXPIRE_DAYS=${COOKIES_EXPIRE_DAYS}
+      - TOKEN_COOKIE_NAME=${TOKEN_COOKIE_NAME}
+      - BROKER=redis://redis:6379/0
+      - BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: billing_worker
+    command: poetry run celery -A billing.apps.broker.tasks worker --loglevel=info
+    volumes:
+      - ./billing:/app/billing
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
+    environment:
+      - BROKER=redis://redis:6379/0
+      - BACKEND=redis://redis:6379/1
+      - ACCESS_TOKEN_EXPIRE_DAYS=${ACCESS_TOKEN_EXPIRE_DAYS:-7}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7
+    container_name: billing_redis
+    hostname: redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: billing_frontend
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - GIGA_API_KEY=${GIGA_API_KEY}
+      - SCOPE=${SCOPE}
+      - SECRET_KEY=${SECRET_KEY}
+      - COOKIES_EXPIRE_DAYS=${COOKIES_EXPIRE_DAYS}
+      - TOKEN_COOKIE_NAME=${TOKEN_COOKIE_NAME}
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app
+      - ./.env:/app/.env
+      - ./frontend/.streamlit:/app/.streamlit
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus
+    container_name: billing_prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana
+    container_name: billing_grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
+    depends_on:
+      - prometheus
+
+volumes:
+  grafana-storage:
