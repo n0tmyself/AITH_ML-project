@@ -30,7 +30,7 @@
 
 ![Balance_History](images/Balance_History.png)
 
-![Balance_History](https://file+.vscode-resource.vscode-cdn.net/Users/dmitriy/Documents/GitHub/WorkSpace/AITH-ML-billing/images/Balance_History.png)
+![Balance_History](images/Tasks.png)
 
 ## ⚙️ Сервисы
 
@@ -57,7 +57,7 @@
 
 Метрики мониторинга собираются с помощью Grafana + Prometheus
 
-![Мониторинг](docs/Grafana.png)
+![Мониторинг](images/grafana1.png)
 
 ## 🚀 Запуск сервиса
 
